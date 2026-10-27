@@ -1,33 +1,33 @@
-/* Brückenwächter – Spiellogik. Inhalte stehen in level1.js.
+/* Brückenwächter – Spiellogik. Inhalte stehen in level1.js … level3.js, die Bilder in szenen.js.
    Spielstand und Einstellungen liegen nur auf dem Gerät (localStorage). */
 (() => {
   'use strict';
 
-  const VERSION = '1';            // bei jeder Veröffentlichung mit CACHE in sw.js hochzählen
-  const LEVEL = window.BW_LEVELS[1];
-  const GESAMT = LEVEL.runden.length;
-  const K_STAND = 'bw-stand-l1';
-  const K_BEST = 'bw-best-l1';
+  const VERSION = '2';            // bei jeder Veröffentlichung mit CACHE in sw.js hochzählen
+  const LEVELS = window.BW_LEVELS;
+  const NUMMERN = Object.keys(LEVELS).map(Number).sort((a, b) => a - b);
+  const SZENEN = window.BW_SZENEN;
   const K_EINST = 'bw-einstellungen';
+  const kStand = (n) => `bw-stand-l${n}`;
+  const kBest = (n) => `bw-best-l${n}`;
   const STATIONEN = { handy: 'Handy', server: 'Server', datenbank: 'Datenbank' };
   const ROLLEN = { handy: 'zeigt an', server: 'entscheidet', datenbank: 'merkt sich' };
-  const POS = { handy: 0, server: 0.5, datenbank: 1 };   // Anteil am Brückenpfad
   const WAECHTER = { durch: 'Durchlassen', zurueck: 'Zurückschicken' };
   const LOB = ['Richtig!', 'Genau!', 'Stark!', 'Sauber!'];
   const WENIG_BEWEGUNG = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const $ = (id) => document.getElementById(id);
   const el = {
-    startLevelTitel: $('startLevelTitel'), startStand: $('startStand'), startMerksatz: $('startMerksatz'),
-    spielen: $('spielenKnopf'), neu: $('neuKnopf'), install: $('installKnopf'), installTipp: $('installTipp'), fuss: $('fuss'),
+    levelListe: $('levelListe'), spielen: $('spielenKnopf'), neu: $('neuKnopf'),
+    install: $('installKnopf'), installTipp: $('installTipp'), fuss: $('fuss'),
     zurueck: $('zurueckKnopf'), zaehler: $('kopfZaehler'), punkte: $('punkte'), ton: $('tonKnopf'), balken: $('balken'),
-    szeneWeg: $('szeneWeg'), szeneTor: $('szeneTor'), pfad: $('bogenPfad'), ball: $('ball'), schloss: $('schloss'),
-    schranke: $('schranke'), paket: $('paket'),
-    hinweis: $('rundeHinweis'), frage: $('frage'), text: $('text'), code: $('code'), legende: $('legende'), antworten: $('antworten'),
+    szene: $('szene'), hinweis: $('rundeHinweis'), frage: $('frage'), text: $('text'),
+    code: $('code'), legende: $('legende'), meldung: $('meldung'), antworten: $('antworten'),
     blatt: $('blatt'), schleier: $('schleier'), blattTitel: $('blattTitel'), blattLoesung: $('blattLoesung'),
     blattText: $('blattText'), blattPunkte: $('blattPunkte'), weiter: $('weiterKnopf'),
-    endePunkte: $('endePunkte'), endeErste: $('endeErste'), endeSerie: $('endeSerie'), endeRekord: $('endeRekord'),
-    endeMerksatz: $('endeMerksatz'), konfetti: $('konfetti'), nochmal: $('nochmalKnopf'), zumStart: $('zumStartKnopf')
+    endeLevel: $('endeLevel'), endePunkte: $('endePunkte'), endeErste: $('endeErste'), endeSerie: $('endeSerie'),
+    endeRekord: $('endeRekord'), endeHinweis: $('endeHinweis'), endeMerksatz: $('endeMerksatz'), konfetti: $('konfetti'),
+    naechstes: $('naechstesKnopf'), nochmal: $('nochmalKnopf'), zumStart: $('zumStartKnopf')
   };
 
   // ---------- Speicher (kann im privaten Modus fehlen – dann eben ohne) ----------
@@ -37,19 +37,34 @@
   function schreib(k, w) { try { localStorage.setItem(k, JSON.stringify(w)); } catch (_) { /* egal */ } }
   function loesch(k) { try { localStorage.removeItem(k); } catch (_) { /* egal */ } }
 
+  const einst = Object.assign({ ton: true, intros: {} }, lies(K_EINST, {}));
+  if (einst.intro === true) { einst.intros[1] = true; delete einst.intro; }   // Stand aus Version 1
+
+  function ladeStand(n) {
+    const s = lies(kStand(n), null);
+    if (!s || !Array.isArray(s.schlange) || !s.schlange.length || !Array.isArray(s.geschafft)) return null;
+    const ids = new Set(LEVELS[n].runden.map((r) => r.id));
+    return s.schlange.every((id) => ids.has(id)) ? s : null;
+  }
   function neuerStand() {
     return { schlange: LEVEL.runden.map((r) => r.id), geschafft: [], versuche: {}, punkte: 0, serie: 0, besteSerie: 0, ersteRichtig: 0 };
   }
-  function standPruefen(s) {
-    if (!s || !Array.isArray(s.schlange) || !s.schlange.length || !Array.isArray(s.geschafft)) return null;
-    const ids = new Set(LEVEL.runden.map((r) => r.id));
-    return s.schlange.every((id) => ids.has(id)) ? s : null;
+  const geschafft = (n) => Boolean(lies(kBest(n), null));
+  const frei = (n) => n === NUMMERN[0] || geschafft(NUMMERN[NUMMERN.indexOf(n) - 1]);
+  function empfohlen() {
+    return NUMMERN.find((n) => frei(n) && ladeStand(n))
+      || NUMMERN.find((n) => frei(n) && !geschafft(n))
+      || NUMMERN[0];
   }
 
-  const einst = Object.assign({ ton: true, intro: false }, lies(K_EINST, {}));
-  let stand = standPruefen(lies(K_STAND, null));
+  let nr = NUMMERN[0];
+  let LEVEL = LEVELS[nr];
+  let stand = null;
   let gesperrt = false;
   let token = 0;   // wechselt mit jeder neuen Szene, damit alte Animationen abbrechen
+  const szenen = {};
+  let szeneJetzt = null;
+  const gesamt = () => LEVEL.runden.length;
 
   // ---------- Ton und Vibration (selbst erzeugt, keine Dateien) ----------
   let audio = null;
@@ -105,29 +120,32 @@
     });
   }
   const warte = (ms) => new Promise((r) => setTimeout(r, WENIG_BEWEGUNG ? 0 : ms));
-
-  function setzeBall(anteil, hub = 0) {
-    const p = el.pfad.getPointAtLength(el.pfad.getTotalLength() * anteil);
-    el.ball.setAttribute('cx', p.x.toFixed(1));
-    el.ball.setAttribute('cy', (p.y - 12 - hub).toFixed(1));
+  function helfer() {
+    const tok = token;
+    return { bewege: (d, f) => bewege(d, f, tok), warte, aktiv: () => tok === token };
   }
-  function setzePaket(x, deckkraft) {
-    el.paket.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
-    el.paket.style.opacity = deckkraft;
-  }
-  const station = (name) => document.querySelector(`.station[data-station="${name}"]`);
 
-  function szene(typ) {
+  // ---------- Szenen ----------
+  function holeSzene(name) {
+    if (!szenen[name]) {
+      const def = SZENEN[name];
+      const vorlage = document.createElement('template');
+      vorlage.innerHTML = def.svg.trim();
+      const svg = vorlage.content.firstElementChild;
+      el.szene.appendChild(svg);
+      const s = { name, def, svg };
+      if (def.start) def.start(s);
+      szenen[name] = s;
+    }
+    return szenen[name];
+  }
+  function szeneZeigen(name) {
     token++;
-    const tor = typ === 'waechter';
-    el.szeneWeg.toggleAttribute('hidden', tor);   // SVG kennt .hidden nicht, nur das Attribut
-    el.szeneTor.toggleAttribute('hidden', !tor);
-    document.querySelectorAll('.station').forEach((s) => s.classList.remove('leuchtet', 'richtig', 'falsch', 'puls'));
-    el.schloss.classList.remove('zeigen');
-    el.szeneWeg.classList.toggle('waehlbar', typ === 'station');
-    el.schranke.removeAttribute('transform');
-    setzePaket(50, 0);
-    if (!tor) setzeBall(0);
+    const s = holeSzene(name);
+    Object.values(szenen).forEach((x) => x.svg.toggleAttribute('hidden', x !== s));   // SVG kennt .hidden nicht
+    s.svg.classList.remove('waehlbar');
+    szeneJetzt = s;
+    return s;
   }
 
   // ---------- Bildschirme ----------
@@ -138,42 +156,64 @@
     gesperrt = false;
   }
 
-  function merksatz(ziel) {
-    ziel.replaceChildren(...LEVEL.merksatz.map((satz) => {
+  function merksatz(ziel, level) {
+    ziel.replaceChildren(...level.merksatz.map((satz) => {
       const s = document.createElement('span');
       s.textContent = satz;
       return s;
     }));
   }
 
-  function zeigeStart() {
-    zeige('start');
-    const best = lies(K_BEST, null);
-    el.startLevelTitel.textContent = LEVEL.titel;
-    if (stand) {
-      el.startStand.textContent = `Weiter bei Runde ${Math.min(stand.geschafft.length + 1, GESAMT)} von ${GESAMT}`;
-      el.spielen.textContent = 'Weiter spielen';
-      el.neu.hidden = false;
-    } else if (best) {
-      el.startStand.textContent = `Geschafft · Bestwert ${best.punkte} von ${GESAMT * 10} Punkten`;
-      el.spielen.textContent = 'Nochmal spielen';
-      el.neu.hidden = true;
-    } else {
-      el.startStand.textContent = `${GESAMT} Runden · etwa 5 Minuten`;
-      el.spielen.textContent = 'Spielen';
-      el.neu.hidden = true;
-    }
+  function levelKarte(n) {
+    const L = LEVELS[n];
+    const zahl = L.runden.length;
+    const best = lies(kBest(n), null);
+    const lauf = ladeStand(n);
+    const offen = frei(n);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `level-karte${offen ? '' : ' gesperrt'}${best ? ' fertig' : ''}`;
+    b.disabled = !offen;
+    const kopfzeile = document.createElement('div');
+    kopfzeile.className = 'level-nr';
+    kopfzeile.textContent = `Level ${n}${best ? ' ✓' : ''}${offen ? '' : ' 🔒'}`;
+    const titel = document.createElement('div');
+    titel.className = 'level-titel';
+    titel.textContent = L.titel;
+    const zeile = document.createElement('div');
+    zeile.className = 'level-stand';
+    if (!offen) zeile.textContent = `Erst Level ${NUMMERN[NUMMERN.indexOf(n) - 1]} schaffen`;
+    else if (lauf) zeile.textContent = `Weiter bei Runde ${Math.min(lauf.geschafft.length + 1, zahl)} von ${zahl}`;
+    else if (best) zeile.textContent = `Geschafft · Bestwert ${best.punkte} von ${zahl * 10} Punkten`;
+    else zeile.textContent = `${zahl} Runden · etwa 5 Minuten`;
+    b.append(kopfzeile, titel, zeile);
+    b.addEventListener('click', () => spielen(n, false));
+    return b;
   }
 
-  function spielen(vonVorn) {
+  function zeigeStart() {
+    zeige('start');
+    el.levelListe.replaceChildren(...NUMMERN.map(levelKarte));
+    const n = empfohlen();
+    const lauf = ladeStand(n);
+    el.spielen.textContent = lauf ? `Weiter: Level ${n}` : geschafft(n) ? `Nochmal: Level ${n}` : `Spielen: Level ${n}`;
+    el.spielen.dataset.level = n;
+    el.neu.hidden = !lauf;
+    el.neu.dataset.level = n;
+  }
+
+  function spielen(n, vonVorn) {
     ton.tipp();
-    if (vonVorn || !stand) {
+    nr = n;
+    LEVEL = LEVELS[n];
+    stand = vonVorn ? null : ladeStand(n);
+    if (!stand) {
       stand = neuerStand();
-      schreib(K_STAND, stand);
+      schreib(kStand(nr), stand);
     }
     if (!history.state || history.state.bw !== 'spiel') history.pushState({ bw: 'spiel' }, '');
     zeige('spiel');
-    if (!einst.intro) zeigeIntro(); else zeigeRunde();
+    if (!einst.intros[nr]) zeigeIntro(); else zeigeRunde();
   }
 
   function zurStart() {
@@ -182,9 +222,9 @@
 
   function kopf(pop) {
     const fertig = stand ? stand.geschafft.length : 0;
-    el.zaehler.textContent = `Level ${LEVEL.nr} · ${fertig}/${GESAMT}`;
+    el.zaehler.textContent = `Level ${nr} · ${fertig}/${gesamt()}`;
     el.punkte.textContent = stand ? stand.punkte : 0;
-    el.balken.style.width = `${(fertig / GESAMT) * 100}%`;
+    el.balken.style.width = `${(fertig / gesamt()) * 100}%`;
     if (pop) {
       el.punkte.classList.remove('pop');
       void el.punkte.offsetWidth;
@@ -201,38 +241,44 @@
     return b;
   }
 
+  // Code und Fehlermeldungen: "+ " und "- " am Zeilenanfang markieren eine Änderung
+  function zeigeCode(ziel, zeilen, letzteHervorheben) {
+    ziel.hidden = !zeilen;
+    if (!zeilen) return;
+    const teile = [];
+    zeilen.forEach((zeile, i) => {
+      const s = document.createElement('span');
+      const alt = /^- /.test(zeile);
+      const neu = /^\+ /.test(zeile);
+      const letzte = letzteHervorheben && i === zeilen.length - 1;
+      s.className = alt ? 'alt' : neu ? 'neu' : letzte ? 'letzte' : '';
+      s.textContent = alt ? `−${zeile.slice(1)}` : zeile;
+      teile.push(s);
+      if (i < zeilen.length - 1) teile.push('\n');
+    });
+    ziel.replaceChildren(...teile);
+  }
+
   // ---------- Einführung ----------
-  async function zeigeIntro() {
-    szene('station');
-    const tok = token;
-    el.szeneWeg.classList.remove('waehlbar');
+  function zeigeIntro() {
+    const s = szeneZeigen(LEVEL.intro.szene || LEVEL.szene);
     kopf();
     el.hinweis.hidden = true;
     el.frage.textContent = LEVEL.intro.titel;
     el.frage.classList.add('titel');
     el.text.textContent = LEVEL.intro.text;
     el.text.hidden = false;
-    el.code.hidden = true;
+    zeigeCode(el.code, null);
+    zeigeCode(el.meldung, null);
     el.legende.hidden = true;
     el.antworten.className = 'antworten';
     el.antworten.replaceChildren(knopf('Los geht’s', 'knopf', () => {
-      einst.intro = true;
+      einst.intros[nr] = true;
       schreib(K_EINST, einst);
       ton.tipp();
       zeigeRunde();
     }));
-    // Der Ball reist einmal über die Brücke, die Stationen leuchten nacheinander auf
-    const weg = ['handy', 'server', 'datenbank'];
-    station('handy').classList.add('leuchtet');
-    for (let i = 1; i < weg.length; i++) {
-      await warte(450);
-      if (tok !== token) return;
-      const von = POS[weg[i - 1]];
-      const nach = POS[weg[i]];
-      await bewege(800, (p) => setzeBall(von + (nach - von) * p), tok);
-      if (tok !== token) return;
-      station(weg[i]).classList.add('leuchtet');
-    }
+    if (s.def.intro) s.def.intro(s, helfer());
   }
 
   // ---------- Runden ----------
@@ -241,32 +287,17 @@
   function zeigeRunde() {
     const r = aktuelle();
     if (!r) { zeigeEnde(); return; }
-    szene(r.typ);
+    const s = szeneZeigen(r.typ === 'waechter' ? 'tor' : (r.szene || LEVEL.szene));
     kopf();
     el.frage.classList.remove('titel');
     el.text.hidden = true;
     el.hinweis.hidden = !stand.versuche[r.id];
     el.frage.textContent = r.frage;
-    if (r.code) {
-      const teile = [];
-      r.code.forEach((zeile, i) => {
-        const s = document.createElement('span');
-        const alt = zeile.startsWith('-');
-        s.className = alt ? 'alt' : zeile.startsWith('+') ? 'neu' : '';
-        s.textContent = alt ? `−${zeile.slice(1)}` : zeile;
-        teile.push(s);
-        if (i < r.code.length - 1) teile.push('\n');
-      });
-      el.code.replaceChildren(...teile);
-    }
-    el.code.hidden = !r.code;
-    el.legende.hidden = !r.code;
-    (r.fokus || []).forEach((f) => (f === 'schloss' ? el.schloss.classList.add('zeigen') : station(f).classList.add('leuchtet')));
+    zeigeCode(el.code, r.typ === 'zeile' ? null : r.code);
+    zeigeCode(el.meldung, r.meldung, true);
+    el.legende.hidden = !(r.code && r.typ !== 'zeile' && r.code.some((z) => /^[+-] /.test(z)));
+    s.def.vorbereiten(s, r, helfer());
     baueAntworten(r);
-    if (r.typ === 'waechter') {
-      const tok = token;
-      bewege(600, (p) => setzePaket(50 + 86 * p, p), tok);
-    }
   }
 
   function mische(liste) {
@@ -304,15 +335,29 @@
     if (r.typ === 'station') {
       el.antworten.className = 'antworten drei';
       knoepfe = Object.keys(STATIONEN).map((s) => antwortKnopf(s, STATIONEN[s], ROLLEN[s]));
-    } else if (r.typ === 'wahl') {
-      el.antworten.className = 'antworten';
-      knoepfe = mische(r.antworten.map((_, i) => i)).map((i) => antwortKnopf(String(i), r.antworten[i].t));
-    } else {
+    } else if (r.typ === 'waechter') {
       el.antworten.className = 'antworten zwei';
       knoepfe = [
         antwortKnopf('durch', WAECHTER.durch, '', 'durch', '✓'),
         antwortKnopf('zurueck', WAECHTER.zurueck, '', 'zurueck', '✕')
       ];
+    } else if (r.typ === 'zeile') {
+      el.antworten.className = 'antworten zeilen';
+      knoepfe = r.zeilen.map((zeile, i) => {
+        const b = antwortKnopf(String(i), '', '', 'zeile');
+        const nummer = document.createElement('span');
+        nummer.className = 'zeile-nr';
+        nummer.textContent = i + 1;
+        const c = document.createElement('code');
+        c.textContent = zeile;
+        b.replaceChildren(nummer, c);
+        return b;
+      });
+    } else {
+      const reihe = r.antworten.map((_, i) => i);
+      const kurz = r.antworten.length === 2 && r.antworten.every((a) => a.t.length <= 18);
+      el.antworten.className = kurz ? 'antworten zwei' : 'antworten';
+      knoepfe = (r.feste ? reihe : mische(reihe)).map((i) => antwortKnopf(String(i), r.antworten[i].t));
     }
     el.antworten.replaceChildren(...knoepfe);
   }
@@ -322,20 +367,23 @@
       const a = r.antworten[Number(wert)];
       return Boolean(a && a.r);
     }
+    if (r.typ === 'zeile') return Number(wert) === r.richtig;
     return wert === r.richtig;
   }
   function loesung(r) {
     if (r.typ === 'station') return STATIONEN[r.richtig];
-    if (r.typ === 'wahl') return r.antworten.find((a) => a.r).t;
-    return WAECHTER[r.richtig];
+    if (r.typ === 'waechter') return WAECHTER[r.richtig];
+    if (r.typ === 'zeile') return `Zeile ${r.richtig + 1}`;
+    return r.antworten.find((a) => a.r).t;
   }
 
   async function antworten(wert) {
     const r = aktuelle();
     if (gesperrt || !r) return;
     gesperrt = true;
-    const tok = token;
-    el.szeneWeg.classList.remove('waehlbar');
+    const s = szeneJetzt;
+    const h = helfer();
+    s.svg.classList.remove('waehlbar');
 
     // Erst den Stand sichern – wird die App jetzt geschlossen, geht nichts verloren
     const richtig = pruefe(r, wert);
@@ -354,7 +402,7 @@
       stand.serie = 0;
       stand.schlange.push(r.id);   // falsch beantwortet: kommt am Ende noch einmal
     }
-    schreib(K_STAND, stand);
+    schreib(kStand(nr), stand);
 
     const knoepfe = [...el.antworten.querySelectorAll('.antwort')];
     knoepfe.forEach((b) => {
@@ -362,8 +410,8 @@
       if (b.dataset.wert === wert) b.classList.add('gewaehlt');
     });
     ton.tipp();
-    await spieleAntwort(r, wert, richtig, tok);
-    if (tok !== token) return;
+    await s.def.antwort(s, r, wert, richtig, h);
+    if (!h.aktiv()) return;
 
     knoepfe.forEach((b) => {
       b.classList.remove('gewaehlt');
@@ -374,29 +422,6 @@
     if (richtig) { ton.richtig(); vibriere(18); } else { ton.falsch(); vibriere([35, 50, 35]); }
     kopf(plus > 0);
     zeigeBlatt(r, richtig, plus);
-  }
-
-  async function spieleAntwort(r, wert, richtig, tok) {
-    if (r.typ === 'station') {
-      const ziel = POS[wert];
-      if (ziel === 0) await bewege(520, (p, t) => setzeBall(0, Math.sin(t * Math.PI) * 26), tok);
-      else await bewege(500 + 400 * ziel, (p) => setzeBall(p * ziel), tok);
-      if (tok !== token) return;
-      station(wert).classList.add(richtig ? 'richtig' : 'falsch');
-      if (!richtig) station(r.richtig).classList.add('richtig', 'puls');
-    } else if (r.typ === 'wahl') {
-      await warte(250);
-    } else if (wert === 'durch') {
-      await bewege(280, (p) => el.schranke.setAttribute('transform', `rotate(${(-80 * p).toFixed(1)} 160 102.5)`), tok);
-      await bewege(650, (p) => setzePaket(136 + 174 * p, 1), tok);
-      if (tok !== token) return;
-      station('akte').classList.add(richtig ? 'richtig' : 'falsch');
-    } else {
-      await bewege(200, (p, t) => setzePaket(136 + 8 * Math.sin(t * Math.PI), 1), tok);
-      await bewege(520, (p) => setzePaket(136 - 86 * p, 1 - 0.85 * p), tok);
-      if (tok !== token) return;
-      station('ki').classList.add(richtig ? 'richtig' : 'falsch');
-    }
   }
 
   // ---------- Rückmeldung ----------
@@ -428,16 +453,26 @@
   // ---------- Ende ----------
   function zeigeEnde() {
     const ergebnis = { punkte: stand.punkte, ersteRichtig: stand.ersteRichtig, besteSerie: stand.besteSerie };
-    const alt = lies(K_BEST, null);
+    const alt = lies(kBest(nr), null);
     const rekord = !alt || ergebnis.punkte > alt.punkte;
-    if (rekord) schreib(K_BEST, ergebnis);
-    loesch(K_STAND);
+    if (rekord) schreib(kBest(nr), ergebnis);
+    loesch(kStand(nr));
     stand = null;
     zeige('ende');
+    el.endeLevel.textContent = `Level ${nr}`;
     el.endePunkte.textContent = ergebnis.punkte;
-    el.endeErste.textContent = `${ergebnis.ersteRichtig}/${GESAMT}`;
+    el.endeErste.textContent = `${ergebnis.ersteRichtig}/${gesamt()}`;
     el.endeSerie.textContent = ergebnis.besteSerie;
     el.endeRekord.hidden = !(rekord && alt);
+    merksatz(el.endeMerksatz, LEVEL);
+    const naechstes = NUMMERN[NUMMERN.indexOf(nr) + 1];
+    el.naechstes.hidden = !naechstes;
+    if (naechstes) {
+      el.naechstes.textContent = `Weiter zu Level ${naechstes}`;
+      el.naechstes.dataset.level = naechstes;
+    }
+    el.nochmal.className = naechstes ? 'knopf-zweit' : 'knopf';
+    el.endeHinweis.hidden = Boolean(naechstes);
     konfetti();
     ton.ende();
     vibriere([20, 40, 20, 40, 60]);
@@ -478,9 +513,10 @@
   });
 
   // ---------- Verdrahtung ----------
-  el.spielen.addEventListener('click', () => spielen(false));
-  el.neu.addEventListener('click', () => spielen(true));
-  el.nochmal.addEventListener('click', () => spielen(true));
+  el.spielen.addEventListener('click', () => spielen(Number(el.spielen.dataset.level), false));
+  el.neu.addEventListener('click', () => spielen(Number(el.neu.dataset.level), true));
+  el.naechstes.addEventListener('click', () => spielen(Number(el.naechstes.dataset.level), false));
+  el.nochmal.addEventListener('click', () => spielen(nr, true));
   el.zurueck.addEventListener('click', zurStart);
   el.zumStart.addEventListener('click', zurStart);
   el.weiter.addEventListener('click', weiter);
@@ -490,17 +526,16 @@
     tonKnopfZeigen();
     ton.tipp();
   });
-  el.szeneWeg.addEventListener('click', (e) => {
-    if (!el.szeneWeg.classList.contains('waehlbar')) return;
-    const g = e.target.closest('.station');
-    if (g && STATIONEN[g.dataset.station]) antworten(g.dataset.station);
+  el.szene.addEventListener('click', (e) => {
+    const s = szeneJetzt;
+    if (gesperrt || !s || !s.svg.classList.contains('waehlbar') || !s.def.tippe) return;
+    const w = s.def.tippe(s, aktuelle(), e.target);
+    if (w !== null && w !== undefined) antworten(w);
   });
   window.addEventListener('popstate', () => {
     if (!$('start').classList.contains('aktiv')) zeigeStart();
   });
 
-  merksatz(el.startMerksatz);
-  merksatz(el.endeMerksatz);
   el.fuss.textContent = `Version ${VERSION} · läuft offline · 0 €`;
   tonKnopfZeigen();
   zeigeStart();

@@ -100,12 +100,21 @@ h1, h2, p { margin: 0; }
   background: var(--sanft); border-radius: 999px; padding: 6px 12px;
   font-size: 15px; font-weight: 700; color: var(--dunkel);
 }
+.level-liste { display: grid; gap: 10px; margin-bottom: 16px; }
+button.level-karte {
+  display: block; width: 100%; margin: 0; text-align: left; font: inherit; color: inherit;
+  transition: transform .1s, border-color .2s;
+}
+button.level-karte:active:not(:disabled) { transform: scale(.98); }
+.level-karte.fertig { border-color: var(--gruen-blass); }
+.level-karte.gesperrt { cursor: default; }
 .start-unten { margin-top: auto; display: grid; gap: 8px; }
 .install-tipp { font-size: 15px; color: var(--text-zweit); text-align: center; }
 .fuss { font-size: 13px; color: var(--text-zweit); text-align: center; margin-top: 4px; }
 
 .ende-kopf { text-align: center; margin: 24px 0 18px; }
 .ende-rekord { color: var(--gold); font-weight: 700; margin-top: 6px; }
+.ende-hinweis { color: var(--gruen-tief); font-weight: 700; margin-top: 6px; }
 .ende-zahlen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .zahl {
   background: var(--karte); border: 2px solid var(--linie); border-radius: 16px;
@@ -131,12 +140,12 @@ h1, h2, p { margin: 0; }
 
 /* Spielfläche */
 .spiel-inhalt {
-  flex: 1; min-height: 0; overflow-y: auto;
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column;
   padding: 6px 16px calc(14px + env(safe-area-inset-bottom));
 }
 .szene { width: 100%; max-width: 420px; margin: 0 auto; }
-.szene svg { display: block; width: 100%; height: auto; overflow: visible; }
+.szene svg { display: block; width: 100%; height: auto; max-height: 30dvh; overflow: hidden; }
 .runde-hinweis {
   align-self: flex-start; margin-top: 6px;
   font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -153,6 +162,8 @@ h1, h2, p { margin: 0; }
 }
 .code .neu { color: #C9DDB4; }
 .code .alt { color: #EBB9AF; text-decoration: line-through; text-decoration-color: rgba(235, 185, 175, .6); }
+.code.meldung { background: #2A1E1C; color: #D9C9C3; font-size: 13.5px; border-left: 4px solid var(--rot); }
+.code.meldung .letzte { color: #FFB4A6; font-weight: 700; }
 .legende { font-size: 14px; color: var(--text-zweit); }
 .legende .neu { color: var(--gruen); font-weight: 700; }
 .legende .alt { color: var(--rot); font-weight: 700; }
@@ -174,6 +185,16 @@ h1, h2, p { margin: 0; }
 .antwort.falsch { border-color: var(--rot); background: var(--rot-grund); }
 .antwort.gedimmt { opacity: .45; }
 .antwort .zeichen { display: block; font-size: 1.5rem; line-height: 1; margin-bottom: 4px; }
+.antworten.zeilen { gap: 8px; }
+.antwort.zeile {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; overflow-x: auto;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Roboto Mono', monospace; font-size: 15px;
+}
+.antwort.zeile code { font: inherit; white-space: pre; }
+.zeile-nr {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--sanft); color: var(--text-zweit); font: 700 13px 'Atkinson', sans-serif;
+}
 .antwort.durch { color: var(--gruen-tief); font-weight: 700; }
 .antwort.zurueck { color: var(--rot-tief); font-weight: 700; }
 
@@ -205,6 +226,54 @@ h1, h2, p { margin: 0; }
 .schranke { fill: var(--rot); }
 .paket rect { fill: var(--gold-hell); stroke: var(--gold); stroke-width: 2; }
 .paket path { fill: none; stroke: var(--gold); stroke-width: 2; }
+
+/* Level 2: Kiste, Weiche, Maschine, Fließband */
+.boden { stroke: var(--linie); stroke-width: 4; stroke-linecap: round; }
+.kiste-oeffnung { fill: #5A4223; }
+.kiste-front { fill: #E2C597; stroke: var(--dunkel); stroke-width: 2.5; stroke-linejoin: round; }
+.kiste-brett { fill: none; stroke: #B08A55; stroke-width: 2; }
+.kiste-schild { fill: #FFFDF8; stroke: var(--dunkel); stroke-width: 2; }
+.kiste-name, .raute-text, .maschine-name {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Roboto Mono', monospace; font-weight: 700; text-anchor: middle;
+}
+.kiste-name { font-size: 15px; fill: var(--dunkel); }
+.karte-flaeche { fill: #fff; stroke: var(--dunkel); stroke-width: 2; }
+.karte-text { font: 700 15px 'Atkinson', sans-serif; fill: var(--dunkel); text-anchor: middle; }
+.karte.flug .karte-flaeche { fill: var(--gold-hell); stroke: var(--gold); }
+.karte.raus .karte-flaeche { fill: var(--gruen-grund); }
+.gleis, .gleis-klein { fill: none; stroke: var(--gruen-blass); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.gleis-klein { stroke-width: 4; }
+.raute-text { font-size: 13px; fill: var(--dunkel); }
+.gleis-name { font: 700 13px 'Atkinson', sans-serif; fill: var(--text-zweit); text-anchor: middle; }
+.schild-text { font: 700 13px 'Atkinson', sans-serif; fill: var(--dunkel); text-anchor: middle; }
+.station .symbol.maschine-koerper { fill: var(--gruen-grund); }
+.maschine-schild { fill: var(--dunkel); }
+.maschine-name { font-size: 14px; fill: var(--code-text); }
+.zahnrad-form { fill: var(--gold-hell); stroke: var(--gold); stroke-width: 2; stroke-linejoin: round; }
+.zahnrad-mitte { fill: var(--dunkel); }
+.schlitz { fill: var(--dunkel); }
+.band { fill: var(--dunkel); }
+.band-pfeil { fill: none; stroke: var(--gruen-blass); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.stempel { fill: var(--gold-hell); stroke: var(--gold); stroke-width: 2; }
+.karte.ding .karte-text { font-size: 13px; }
+.ausgabe-titel { font: 700 12px 'Atkinson', sans-serif; fill: var(--gruen-blass); letter-spacing: .04em; }
+.ausgabe-zeile {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Roboto Mono', monospace; font-size: 15px; font-weight: 700;
+  fill: var(--code-text);
+}
+.ausgabe-zeile.erste { fill: var(--gold-hell); text-decoration: underline; }
+
+/* Level 3: Lupe über der Fehlermeldung */
+.terminal { fill: var(--dunkel); }
+.terminal-punkt { fill: #55524A; }
+.terminal-zeile { fill: #4F6152; }
+.fehler-zeile { fill: var(--rot); opacity: .45; transition: opacity .3s; }
+.fehler-zeile.an { opacity: 1; }
+.lupe-glas { fill: rgba(247, 241, 230, .2); stroke: var(--code-text); stroke-width: 4; transition: fill .2s; }
+.lupe-griff { stroke: var(--code-text); stroke-width: 7; stroke-linecap: round; }
+.lupe.richtig .lupe-glas { fill: rgba(68, 104, 60, .9); stroke: var(--gruen-blass); }
+.lupe.falsch .lupe-glas { fill: rgba(193, 80, 63, .9); stroke: #E5B7AE; }
+.lupe-zeichen { font: 700 20px 'Atkinson', sans-serif; fill: #fff; text-anchor: middle; }
 
 /* Rückmeldung */
 .schleier {

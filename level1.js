@@ -9,6 +9,7 @@ window.BW_LEVELS = window.BW_LEVELS || {};
 window.BW_LEVELS[1] = {
   nr: 1,
   titel: 'Der Weg eines Klicks',
+  szene: 'weg',
   merksatz: ['Handy zeigt an.', 'Server entscheidet.', 'Datenbank merkt sich.'],
   intro: {
     titel: 'So funktioniert jede App',
