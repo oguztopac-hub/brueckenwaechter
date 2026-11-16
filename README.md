@@ -7,8 +7,8 @@ Kleines Lernspiel fürs Handy: Wie funktionieren Apps? Runde für Runde, offline
 ## Aufbau
 
 - `index.html`, `stil.css`, `spiel.js` – Oberfläche und Spiellogik, ohne Frameworks und ohne fremde Server
-- `szenen.js` – die bewegten Bilder über jeder Frage (Brücke, Tor, Kiste, Weiche, Maschine, Fließband, Lupe)
-- `level1.js` … `level3.js` – Inhalte (Rundentypen `station`, `wahl`, `waechter`, `zeile`); jedes Level wird frei, wenn das vorige geschafft ist
+- `szenen.js` – die bewegten Bilder über jeder Frage (Brücke, Tor, Kiste, Weiche, Maschine, Fließband, Lupe; ab Level 4 „drei“: drei frei beschriftete Stationen)
+- `level1.js` … `level13.js` – Inhalte (Rundentypen `station`, `wahl`, `waechter`, `zeile`); jedes Level wird frei, wenn das vorige geschafft ist
 - `sw.js`, `manifest.webmanifest` – Offline-Betrieb und Installation als App
 - `werkzeuge/symbol.py` – erzeugt die App-Symbole in `bilder/` (braucht Pillow)
 
@@ -25,6 +25,7 @@ Der Spielstand bleibt auf dem Gerät (localStorage). Es wird nichts gesendet. Di
 
 - 27.10.2026: Level 1 „Der Weg eines Klicks“ (11 Runden).
 - 28.10.2026: Level 2 „Bausteine von Python“ (12 Runden) und Level 3 „Fehlermeldungen lesen“ (11 Runden, echte Meldungen von Python 3.14).
+- 16.11.2026: Version 3 mit Level 4–13 (je 11–12 Runden): git, Änderungen lesen, Geheimnisse und Zugänge, Datenbank lesen, Listen und Wörterbücher, Webseiten lesen, Anfragen und Antworten, Tests, Wie eine KI arbeitet, Der Server.
 
 ## Lizenzen
 

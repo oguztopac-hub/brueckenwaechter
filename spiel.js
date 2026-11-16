@@ -1,9 +1,9 @@
-/* Brückenwächter – Spiellogik. Inhalte stehen in level1.js … level3.js, die Bilder in szenen.js.
+/* Brückenwächter – Spiellogik. Inhalte stehen in level1.js … level13.js, die Bilder in szenen.js.
    Spielstand und Einstellungen liegen nur auf dem Gerät (localStorage). */
 (() => {
   'use strict';
 
-  const VERSION = '2';            // bei jeder Veröffentlichung mit CACHE in sw.js hochzählen
+  const VERSION = '3';            // bei jeder Veröffentlichung mit CACHE in sw.js hochzählen
   const LEVELS = window.BW_LEVELS;
   const NUMMERN = Object.keys(LEVELS).map(Number).sort((a, b) => a - b);
   const SZENEN = window.BW_SZENEN;
@@ -200,6 +200,8 @@
     el.spielen.dataset.level = n;
     el.neu.hidden = !lauf;
     el.neu.dataset.level = n;
+    const karte = el.levelListe.children[NUMMERN.indexOf(n)];   // bei vielen Leveln das nächste in Sicht holen
+    if (karte && karte.scrollIntoView) karte.scrollIntoView({ block: 'center' });
   }
 
   function spielen(n, vonVorn) {
@@ -278,7 +280,7 @@
       ton.tipp();
       zeigeRunde();
     }));
-    if (s.def.intro) s.def.intro(s, helfer());
+    if (s.def.intro) s.def.intro(s, helfer(), LEVEL);
   }
 
   // ---------- Runden ----------
@@ -296,7 +298,7 @@
     zeigeCode(el.code, r.typ === 'zeile' ? null : r.code);
     zeigeCode(el.meldung, r.meldung, true);
     el.legende.hidden = !(r.code && r.typ !== 'zeile' && r.code.some((z) => /^[+-] /.test(z)));
-    s.def.vorbereiten(s, r, helfer());
+    s.def.vorbereiten(s, r, helfer(), LEVEL);
     baueAntworten(r);
   }
 

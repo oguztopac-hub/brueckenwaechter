@@ -108,6 +108,8 @@ button.level-karte {
 button.level-karte:active:not(:disabled) { transform: scale(.98); }
 .level-karte.fertig { border-color: var(--gruen-blass); }
 .level-karte.gesperrt { cursor: default; }
+.level-karte.gesperrt { padding: 9px 16px; }
+.level-karte.gesperrt .level-stand { display: none; }
 .start-unten { margin-top: auto; display: grid; gap: 8px; }
 .install-tipp { font-size: 15px; color: var(--text-zweit); text-align: center; }
 .fuss { font-size: 13px; color: var(--text-zweit); text-align: center; margin-top: 4px; }
@@ -214,6 +216,7 @@ button.level-karte:active:not(:disabled) { transform: scale(.98); }
 .station .licht { fill: var(--gruen); }
 .waehlbar .station[data-station] { cursor: pointer; }
 .ki-text { font: 700 18px 'Atkinson', sans-serif; fill: var(--dunkel); text-anchor: middle; }
+.drei-zeichen { font: 700 21px 'Atkinson', sans-serif; fill: var(--dunkel); text-anchor: middle; }
 .station-name { font: 700 15px 'Atkinson', sans-serif; fill: var(--text); text-anchor: middle; }
 .station-rolle { font: 400 12.5px 'Atkinson', sans-serif; fill: var(--text-zweit); text-anchor: middle; }
 .ball { fill: var(--gold-hell); stroke: var(--gold); stroke-width: 2; }

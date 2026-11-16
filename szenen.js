@@ -549,5 +549,71 @@
     }
   };
 
-  window.BW_SZENEN = { weg, tor, vier, kiste, weiche, maschine, band, lupe };
+  // ---------- Ab Level 4: drei frei beschriftete Stationen an der Brücke ----------
+  // Das Level bringt die Beschriftung mit: drei: [{ z: Zeichen, name, rolle }, …].
+  // Runde: ziel = Station (0–2), zu der der Ball nach der Antwort rollt; fokus = Stationen, die leuchten.
+  const DREI_X = [50, 180, 310];
+  const drei = {
+    svg: `<svg viewBox="0 0 360 196" role="img" aria-label="Drei Stationen, verbunden durch eine Brücke">
+      <path class="bogen" d="M50 96 Q115 26 180 96 Q245 26 310 96"/>
+      ${DREI_X.map((x, i) => `<g class="station" data-station="${i}" transform="translate(${x} 128)">
+        <circle class="hof" r="36"/>
+        <rect class="symbol" x="-25" y="-22" width="50" height="44" rx="11"/>
+        <text class="drei-zeichen" x="0" y="8"></text>
+      </g>
+      <text class="station-name" data-name="${i}" x="${x}" y="178"></text>
+      <text class="station-rolle" data-rolle="${i}" x="${x}" y="193"></text>`).join('')}
+      <circle class="ball" cx="50" cy="84" r="9"/>
+    </svg>`,
+    start(s) {
+      s.pfad = s.svg.querySelector('.bogen');
+      s.ball = s.svg.querySelector('.ball');
+    },
+    beschrifte(s, level) {
+      (level.drei || []).forEach((d, i) => {
+        teil(s, i).querySelector('text').textContent = d.z;
+        s.svg.querySelector(`[data-name="${i}"]`).textContent = d.name;
+        s.svg.querySelector(`[data-rolle="${i}"]`).textContent = d.rolle;
+      });
+    },
+    vorbereiten(s, r, h, level) {
+      zuruecksetzen(s);
+      drei.beschrifte(s, level);
+      wegBall(s, 0);
+      (r.fokus || []).forEach((f) => teil(s, f).classList.add('leuchtet'));
+    },
+    async intro(s, h, level) {
+      zuruecksetzen(s);
+      drei.beschrifte(s, level);
+      wegBall(s, 0);
+      teil(s, 0).classList.add('leuchtet');
+      for (let i = 1; i < 3; i++) {
+        await h.warte(450);
+        if (!h.aktiv()) return;
+        await h.bewege(800, (p) => wegBall(s, (i - 1 + p) / 2));
+        if (!h.aktiv()) return;
+        teil(s, i).classList.add('leuchtet');
+      }
+    },
+    async antwort(s, r, wert, richtig, h) {
+      const klasse = richtig ? 'richtig' : 'falsch';
+      if (r.ziel === undefined) {
+        await h.bewege(520, (p, t) => wegBall(s, 0, Math.sin(t * Math.PI) * 26));
+        if (!h.aktiv()) return;
+        (r.fokus || []).forEach((f) => {
+          teil(s, f).classList.remove('leuchtet');
+          teil(s, f).classList.add(klasse);
+        });
+        return;
+      }
+      const ziel = r.ziel / 2;
+      if (ziel === 0) await h.bewege(520, (p, t) => wegBall(s, 0, Math.sin(t * Math.PI) * 26));
+      else await h.bewege(500 + 400 * ziel, (p) => wegBall(s, p * ziel));
+      if (!h.aktiv()) return;
+      teil(s, r.ziel).classList.remove('leuchtet');
+      teil(s, r.ziel).classList.add(klasse);
+    }
+  };
+
+  window.BW_SZENEN = { weg, tor, vier, kiste, weiche, maschine, band, lupe, drei };
 })();

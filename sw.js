@@ -1,6 +1,6 @@
 /* Service Worker: legt alle Dateien beim ersten Laden ab, danach läuft das Spiel offline.
    Neue Fassung veröffentlichen: CACHE hochzählen (und VERSION in spiel.js). */
-const CACHE = 'bw-v2';
+const CACHE = 'bw-v3';
 const DATEIEN = [
   './',
   'index.html',
@@ -10,6 +10,16 @@ const DATEIEN = [
   'level1.js',
   'level2.js',
   'level3.js',
+  'level4.js',
+  'level5.js',
+  'level6.js',
+  'level7.js',
+  'level8.js',
+  'level9.js',
+  'level10.js',
+  'level11.js',
+  'level12.js',
+  'level13.js',
   'manifest.webmanifest',
   'schriften/fraunces-latin.woff2',
   'schriften/atkinson-400-latin.woff2',
